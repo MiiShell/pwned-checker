@@ -1,6 +1,7 @@
 import csv
 import logging
 import re
+import time  # Adding explicit time wait as a backup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -10,8 +11,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ###############################################
-# Version 3.2
+# Version 3.3
 # ###############################################
+
+
 
 
 # Configuration Variables
@@ -20,7 +23,8 @@ EMAIL_LIST = ['email1@example.com', 'email2@example.com']  # Add more emails as 
 OUTPUT_FILE = 'pwned_results.csv'
 LOG_FILE = 'script.log'
 HEADLESS = True  # Set to False if you want to see the browser actions
-TIMEOUT = 10  # Seconds to wait for elements
+TIMEOUT = 20  # Seconds to wait for elements (increased to 20s)
+WAIT_TIME = 5  # Extra wait time before extracting information
 
 # Setup Logging
 logging.basicConfig(
@@ -60,7 +64,7 @@ def extract_pwned_info(text):
         return breaches_text, pastes_text
     except Exception as e:
         logging.error(f"Error extracting pwned information: {e}")
-        return "Pwned in 0 data breaches", "and found 0 paste(s)"
+        return "Error extracting breaches", "Error extracting pastes"
 
 def check_email_pwned(driver, email):
     """Check if the provided email has been pwned."""
@@ -83,27 +87,23 @@ def check_email_pwned(driver, email):
         search_button.click()
         logging.info(f"Clicked the 'pwned?' button for {email}")
 
-        # Wait for the result to appear
-        wait.until(
+        # Wait for the pwned title to appear
+        pwned_title = wait.until(
             EC.presence_of_element_located((By.CLASS_NAME, 'pwnTitle'))
         )
 
-        # Extract the result text
-        pwned_result_element = driver.find_element(By.CLASS_NAME, 'pwnTitle')
-        pwned_result_text = pwned_result_element.text.strip()
+        # Explicit wait for pwnCount element and additional wait time for data to load
+        logging.info(f"Waiting for pwnCount element for {WAIT_TIME} seconds before extraction.")
+        time.sleep(WAIT_TIME)  # Adding explicit sleep
 
-        # Check if the user is pwned or not
-        if "no pwnage found" in pwned_result_text.lower():
-            logging.info(f"Good news for {email} — no pwnage found!")
-            return {"email": email, "status": "No pwnage found", "breaches": "0", "pastes": "0"}
-        else:
-            # Wait for the `pwnCount` element to appear before extracting information
+        try:
+            # Locate the pwnCount element
             pwn_count_element = wait.until(
                 EC.presence_of_element_located((By.ID, 'pwnCount'))
             )
             pwn_count_text = pwn_count_element.text.strip()
 
-            # DEBUG: Log the full text for analysis
+            # Log the pwnCount text for verification
             logging.info(f"pwnCount text for {email}: {pwn_count_text}")
             print(f"pwnCount text for {email}: {pwn_count_text}")
 
@@ -112,8 +112,12 @@ def check_email_pwned(driver, email):
 
             logging.info(f"Oh no — {email} has been pwned!")
             logging.info(f"{breaches_text}, {pastes_text}")
-            
+
             return {"email": email, "status": "Pwned", "breaches": breaches_text, "pastes": pastes_text}
+
+        except Exception as e:
+            logging.error(f"Error extracting pwnCount for {email}: {e}")
+            return {"email": email, "status": f"Error extracting pwnCount: {e}", "breaches": "0", "pastes": "0"}
 
     except Exception as e:
         logging.error(f"Error processing {email}: {e}")
