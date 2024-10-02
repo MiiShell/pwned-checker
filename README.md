@@ -3,7 +3,7 @@
 
 
 
-
+pip freeze > requirements.txt
 
 ./git_update.sh
 ./start.sh
