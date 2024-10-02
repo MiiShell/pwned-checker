@@ -9,7 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Configuration Variables
@@ -74,27 +74,35 @@ def check_email_pwned(driver, email):
         search_button.click()
         logging.info(f"Clicked the 'pwned?' button for {email}")
 
-        # Wait for the pwned title to appear
-        pwned_title = wait.until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'pwnTitle'))
-        )
+        # Wait for the result element and handle StaleElementReferenceException
+        retries = 3  # Retry up to 3 times in case of stale element
+        for attempt in range(retries):
+            try:
+                # Wait for the pwned title to appear
+                pwned_title = wait.until(
+                    EC.presence_of_element_located((By.CLASS_NAME, 'pwnTitle'))
+                )
 
-        # Wait for the result to load
-        logging.info(f"Waiting {WAIT_TIME} seconds for the page to load before extraction.")
-        time.sleep(WAIT_TIME)
+                # Wait for the result to load
+                logging.info(f"Waiting {WAIT_TIME} seconds for the page to load before extraction.")
+                time.sleep(WAIT_TIME)
 
-        # Check if pwned
-        pwned_result_text = pwned_title.text.strip()
+                # Extract pwned result text
+                pwned_result_text = pwned_title.text.strip()
 
-        # Determine if email is pwned or not
-        if "no pwnage found" in pwned_result_text.lower():
-            logging.info(f"Good news for {email} — no pwnage found!")
-            return {"email": email, "status": "Good news — no pwnage found!", "date": current_date}
-        else:
-            logging.info(f"Oh no — {email} has been pwned!")
-            return {"email": email, "status": "Pwned", "date": current_date}
+                # Determine if email is pwned or not
+                if "no pwnage found" in pwned_result_text.lower():
+                    logging.info(f"Good news for {email} — no pwnage found!")
+                    return {"email": email, "status": "Good news — no pwnage found!", "date": current_date}
+                else:
+                    logging.info(f"Oh no — {email} has been pwned!")
+                    return {"email": email, "status": "Pwned", "date": current_date}
+            except StaleElementReferenceException:
+                logging.warning(f"StaleElementReferenceException occurred for {email}, retrying... (Attempt {attempt + 1})")
+                if attempt == retries - 1:
+                    raise
 
-    except (TimeoutException, NoSuchElementException) as e:
+    except (TimeoutException, NoSuchElementException, StaleElementReferenceException) as e:
         logging.error(f"Error processing {email}: {e}")
         return {"email": email, "status": f"Error: {e}", "date": current_date}
 
