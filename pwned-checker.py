@@ -6,6 +6,7 @@ import os
 # Paths
 input_file_path = 'input/emails.txt'  # Input email list file
 output_file_path = 'output/pwned_results.txt'  # Output results file
+error_log_file_path = 'output/errors.log'  # Error log file
 
 # Website URL
 website_url = 'https://haveibeenpwned.com/'
@@ -51,7 +52,7 @@ def check_email_pwned(driver, email):
         else:
             return "Unexpected result"
     except Exception as e:
-        return f"Error: {str(e)}"
+        raise Exception(f"Error: Unable to locate result for {email}. Details: {str(e)}")
 
 def read_emails(file_path):
     """Read emails from the input file."""
@@ -63,6 +64,11 @@ def save_results(file_path, results):
     with open(file_path, 'w') as file:
         for email, result in results.items():
             file.write(f"{email}: {result}\n")
+
+def log_error(file_path, error_message):
+    """Log errors to the error log file."""
+    with open(file_path, 'a') as error_log:
+        error_log.write(f"{error_message}\n")
 
 def main():
     """Main function to run the email pwned checker."""
@@ -82,9 +88,15 @@ def main():
     results = {}
     for email in emails:
         print(f"Checking: {email}")
-        result = check_email_pwned(driver, email)
-        print(f"Result for {email}: {result}")
-        results[email] = result
+        try:
+            result = check_email_pwned(driver, email)
+            print(f"Result for {email}: {result}")
+            results[email] = result
+        except Exception as e:
+            error_message = f"Error for {email}: {str(e)}"
+            print(error_message)
+            log_error(error_log_file_path, error_message)
+            results[email] = "Error occurred, check error log"
         time.sleep(1)  # Add a short delay between checks
 
     # Close WebDriver
