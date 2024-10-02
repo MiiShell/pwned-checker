@@ -13,7 +13,7 @@ website_url = 'https://haveibeenpwned.com/'
 
 # Delay times
 DELAY_PAGE_LOAD = 2  # Time to wait for the page to load
-DELAY_RESULT_LOAD = 3  # Time to wait for the result to appear
+DELAY_RESULT_LOAD = 5  # Time to wait for the result to appear
 
 def setup_driver():
     """Setup the Chrome WebDriver."""
