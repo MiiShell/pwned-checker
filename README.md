@@ -4,6 +4,12 @@
 
 
 
+
+./git_update.sh
+./start.sh
+
+
+
 ## Project Folder
 
 your_project/
