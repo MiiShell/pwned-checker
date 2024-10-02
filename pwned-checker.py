@@ -1,110 +1,149 @@
+import csv
+import logging
+import os
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-import time
-import os
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
-# Paths
-input_file_path = 'input/emails.txt'  # Input email list file
-output_file_path = 'output/pwned_results.txt'  # Output results file
-error_log_file_path = 'output/errors.log'  # Error log file
+# ###############################################
+# Configuration
+# ###############################################
+
+# File paths
+date_str = datetime.now().strftime('%Y-%m-%d')
+input_file_path = f'input/emails.txt'
+output_file_path = f'output/pwned_results_{date_str}.csv'
+error_log_file_path = f'output/errors_{date_str}.log'
 
 # Website URL
-website_url = 'https://haveibeenpwned.com/'
+URL = 'https://haveibeenpwned.com/'
 
-# Delay times
-DELAY_PAGE_LOAD = 2  # Time to wait for the page to load
-DELAY_RESULT_LOAD = 5  # Time to wait for the result to appear
+# Settings
+HEADLESS = True  # Set to False if you want to see the browser actions
+TIMEOUT = 10  # Seconds to wait for elements
 
-def setup_driver():
-    """Setup the Chrome WebDriver."""
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  # Run browser in headless mode
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(options=options)  # Ensure the path to ChromeDriver is set if needed
+# Setup Logging
+logging.basicConfig(
+    filename=error_log_file_path,
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+def setup_driver(headless=True):
+    """Setup Chrome WebDriver with optional headless mode."""
+    chrome_options = Options()
+    if headless:
+        chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--window-size=1920,1080")
+    # Initialize WebDriver using webdriver-manager for automatic driver management
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     return driver
 
 def check_email_pwned(driver, email):
-    """Check if the email is pwned on the website."""
-    driver.get(website_url)
-    time.sleep(DELAY_PAGE_LOAD)  # Wait for the page to load
-
-    # Find the email input field and the "pwned?" button
-    email_input = driver.find_element(By.ID, 'Account')
-    email_input.clear()
-    email_input.send_keys(email)
-    
-    # Submit the form by clicking the button
-    search_button = driver.find_element(By.ID, 'searchPwnage')
-    search_button.click()
-    
-    # Wait for the result to load
-    time.sleep(DELAY_RESULT_LOAD)
-    
-    # Get result
+    """Check if the provided email has been pwned."""
     try:
-        pwn_title = driver.find_element(By.CLASS_NAME, 'pwnTitle').text
-        if "Good news" in pwn_title:
-            return "No pwnage found"
-        elif "Oh no" in pwn_title:
-            breach_info = driver.find_element(By.ID, 'pwnCount').text
-            return f"Pwned! {breach_info}"
+        driver.get(URL)
+
+        wait = WebDriverWait(driver, TIMEOUT)
+
+        # Wait for the email input field to be present
+        email_input = wait.until(
+            EC.presence_of_element_located((By.ID, 'Account'))
+        )
+        email_input.clear()
+        email_input.send_keys(email)
+
+        # Locate and click the 'pwned?' button
+        search_button = driver.find_element(By.ID, 'searchPwnage')
+        search_button.click()
+
+        # Wait for the result to appear
+        wait.until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'pwnTitle'))
+        )
+
+        # Extract the result text
+        pwned_result_element = driver.find_element(By.CLASS_NAME, 'pwnTitle')
+        pwned_result_text = pwned_result_element.text
+
+        if "no pwnage found" in pwned_result_text.lower():
+            print(f"-----------------------------\ncheck email: {email}\nGood news — no pwnage found!\n-----------------------------")
+            return {"email": email, "status": "Good news — no pwnage found"}
         else:
-            return "Unexpected result"
+            print(f"-----------------------------\ncheck email: {email}\nOh no — pwned!\n-----------------------------")
+            return {"email": email, "status": "Oh no — pwned!"}
+
     except Exception as e:
-        raise Exception(f"Error: Unable to locate result for {email}. Details: {str(e)}")
+        logging.error(f"Error processing {email}: {e}")
+        print(f"-----------------------------\ncheck email: {email}\nError processing this email.\n-----------------------------")
+        return {"email": email, "status": f"Error: {e}"}
 
 def read_emails(file_path):
     """Read emails from the input file."""
-    with open(file_path, 'r') as file:
-        return [line.strip() for line in file if line.strip()]
+    try:
+        with open(file_path, 'r') as file:
+            return [line.strip() for line in file if line.strip()]
+    except Exception as e:
+        logging.error(f"Error reading {file_path}: {e}")
+        return []
 
-def save_results(file_path, results):
-    """Save the results to the output file."""
-    with open(file_path, 'w') as file:
-        for email, result in results.items():
-            file.write(f"{email}: {result}\n")
-
-def log_error(file_path, error_message):
-    """Log errors to the error log file."""
-    with open(file_path, 'a') as error_log:
-        error_log.write(f"{error_message}\n")
+def save_results(results, filename):
+    """Save the results to a CSV file."""
+    try:
+        with open(filename, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Email', 'Status'])
+            for result in results:
+                writer.writerow([result['email'], result['status']])
+        logging.info(f"Results saved to {filename}")
+    except Exception as e:
+        logging.error(f"Failed to save results to {filename}: {e}")
 
 def main():
-    """Main function to run the email pwned checker."""
-    if not os.path.exists(input_file_path):
-        print(f"Input file not found: {input_file_path}")
-        return
-    
+    """Main function to execute the email pwnage check."""
     emails = read_emails(input_file_path)
     if not emails:
-        print("No emails found in the input file.")
+        logging.error("No emails to process.")
         return
-    
-    # Set up WebDriver
-    driver = setup_driver()
-    
-    # Store results
-    results = {}
-    for email in emails:
-        print(f"Checking: {email}")
-        try:
-            result = check_email_pwned(driver, email)
-            print(f"Result for {email}: {result}")
-            results[email] = result
-        except Exception as e:
-            error_message = f"Error for {email}: {str(e)}"
-            print(error_message)
-            log_error(error_log_file_path, error_message)
-            results[email] = "Error occurred, check error log"
-        time.sleep(1)  # Add a short delay between checks
 
-    # Close WebDriver
-    driver.quit()
-    
-    # Save results to output file
-    save_results(output_file_path, results)
-    print(f"Results saved to: {output_file_path}")
+    driver = setup_driver(headless=HEADLESS)
+    results = []
+    good_news_count = 0
+    pwned_count = 0
+
+    try:
+        for email in emails:
+            result = check_email_pwned(driver, email)
+            results.append(result)
+            if "Good news" in result["status"]:
+                good_news_count += 1
+            elif "Oh no" in result["status"]:
+                pwned_count += 1
+            # Optional: Add a short delay to avoid overwhelming the server
+            # time.sleep(1)
+    finally:
+        driver.quit()
+
+    # Save results to output CSV
+    save_results(results, output_file_path)
+
+    # Print the summary
+    print("-----------------------------")
+    print("Result:")
+    print("-----------------------------")
+    print(f"{good_news_count} Good news — no pwnage found")
+    print(f"{pwned_count} Oh no — pwned!")
+    print("-----------------------------")
+    print("------------ END ------------")
 
 if __name__ == "__main__":
+    # Ensure output directory exists
+    os.makedirs('output', exist_ok=True)
     main()

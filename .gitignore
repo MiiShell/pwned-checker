@@ -3,6 +3,10 @@
 pwned_results.csv
 *.csv
 output
+input
+emails.txt
+.archive
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
