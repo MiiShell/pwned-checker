@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ###############################################
-# Version 3.1
+# Version 3
 # ###############################################
 
 
@@ -77,24 +77,16 @@ def check_email_pwned(driver, email):
             return {"email": email, "status": "No pwnage found", "breaches": 0, "pastes": 0}
         else:
             # If pwned, extract the breach and paste counts from the `pwnCount` element
-            try:
-                pwn_count_element = driver.find_element(By.ID, 'pwnCount')
-                pwn_count_text = pwn_count_element.text
+            pwn_count_element = driver.find_element(By.ID, 'pwnCount')
+            pwn_count_text = pwn_count_element.text
 
-                # DEBUG: Log and print pwn_count_text to verify content
-                logging.info(f"pwnCount text for {email}: {pwn_count_text}")
-                print(f"pwnCount text for {email}: {pwn_count_text}")
-
-                # Extract the number of breaches and pastes from the text
-                breaches = int(pwn_count_text.split("Pwned in ")[1].split(" ")[0])
-                pastes = int(pwn_count_text.split("found ")[1].split(" ")[0])
-                
-                logging.info(f"Oh no — {email} has been pwned in {breaches} breaches and found {pastes} pastes.")
-                return {"email": email, "status": "Pwned", "breaches": breaches, "pastes": pastes}
+            # Extract the number of breaches and pastes from the text
+            # Example: "Pwned in 11 data breaches and found 1 paste"
+            breaches = int(pwn_count_text.split("Pwned in ")[1].split(" ")[0])
+            pastes = int(pwn_count_text.split("found ")[1].split(" ")[0])
             
-            except Exception as e:
-                logging.error(f"Error extracting pwnCount for {email}: {e}")
-                return {"email": email, "status": f"Error extracting pwnCount: {e}", "breaches": 0, "pastes": 0}
+            logging.info(f"Oh no — {email} has been pwned in {breaches} breaches and found {pastes} pastes.")
+            return {"email": email, "status": "Pwned", "breaches": breaches, "pastes": pastes}
 
     except Exception as e:
         logging.error(f"Error processing {email}: {e}")
