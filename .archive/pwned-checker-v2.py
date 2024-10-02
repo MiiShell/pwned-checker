@@ -8,11 +8,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ###############################################
-# Version 3
-# ###############################################
 
-
+# ###############################################
+# Version 2 -> There is a new Version available##
+# ###############################################
 
 
 # Configuration Variables
@@ -74,32 +73,23 @@ def check_email_pwned(driver, email):
 
         if "no pwnage found" in pwned_result_text:
             logging.info(f"Good news for {email} — no pwnage found!")
-            return {"email": email, "status": "No pwnage found", "breaches": 0, "pastes": 0}
+            return "No pwnage found"
         else:
-            # If pwned, extract the breach and paste counts from the `pwnCount` element
-            pwn_count_element = driver.find_element(By.ID, 'pwnCount')
-            pwn_count_text = pwn_count_element.text
-
-            # Extract the number of breaches and pastes from the text
-            # Example: "Pwned in 11 data breaches and found 1 paste"
-            breaches = int(pwn_count_text.split("Pwned in ")[1].split(" ")[0])
-            pastes = int(pwn_count_text.split("found ")[1].split(" ")[0])
-            
-            logging.info(f"Oh no — {email} has been pwned in {breaches} breaches and found {pastes} pastes.")
-            return {"email": email, "status": "Pwned", "breaches": breaches, "pastes": pastes}
+            logging.info(f"Oh no — {email} has been pwned!")
+            return "Pwned"
 
     except Exception as e:
         logging.error(f"Error processing {email}: {e}")
-        return {"email": email, "status": f"Error: {e}", "breaches": 0, "pastes": 0}
+        return f"Error: {e}"
 
 def save_results(results, filename):
     """Save the results to a CSV file."""
     try:
         with open(filename, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            writer.writerow(['Email', 'Status', 'Breaches', 'Pastes'])
-            for result in results:
-                writer.writerow([result['email'], result['status'], result['breaches'], result['pastes']])
+            writer.writerow(['Email', 'Status'])
+            for email, status in results.items():
+                writer.writerow([email, status])
         logging.info(f"Results saved to {filename}")
     except Exception as e:
         logging.error(f"Failed to save results to {filename}: {e}")
@@ -107,12 +97,12 @@ def save_results(results, filename):
 def main():
     """Main function to execute the email pwnage check."""
     driver = setup_driver(headless=HEADLESS)
-    results = []
+    results = {}
 
     try:
         for email in EMAIL_LIST:
-            result = check_email_pwned(driver, email)
-            results.append(result)
+            status = check_email_pwned(driver, email)
+            results[email] = status
             # Optional: Add a short delay to avoid overwhelming the server
             # time.sleep(1)
     finally:
