@@ -1,3 +1,9 @@
+# manuelly added
+
+pwned_results.csv
+*.csv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -1,38 +1,49 @@
+# ##############################
+# author: MiiShell
+# created: 02.10.2024
+# modified: 02.10.2024
+# ##############################
 
 
 
+## Version 2 - 02.10.2024
 
+## Key Changes:
 
-
-
-Key Changes:
-Explicit Wait:
+#### Explicit Wait:
 
 Used WebDriverWait with expected_conditions to wait for elements to be available instead of fixed time.sleep(). This is more efficient and reduces unnecessary delays.
 Example:
 
-python
-Copy code
+'''python
 wait = WebDriverWait(driver, 10)
 wait.until(EC.presence_of_element_located((By.ID, 'Account')))
-Headless Mode:
+'''
+
+
+#### Headless Mode:
 
 Added Chrome options to run in headless mode for performance improvements, especially in automated environments like CI/CD pipelines.
 Example:
 
-python
-Copy code
+'''python
 chrome_options = Options()
 chrome_options.add_argument("--headless")
-Logging:
+'''
+
+
+#### Logging:
 
 Replaced print() statements with logging. Logging allows you to easily control the verbosity of the output and store logs for future analysis.
-Example:
 
-python
-Copy code
+#### Example:
+
+'''python
 logging.info("Opened the Have I Been Pwned website.")
-Specific Exception Handling:
+'''
+
+
+#### Specific Exception Handling:
 
 Used more specific exceptions (WebDriverException, NoSuchElementException, etc.) instead of a generic Exception. This allows for better error identification and debugging.
 Graceful Browser Closing:
