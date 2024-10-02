@@ -11,11 +11,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 
-# ###############################################
-# Version 3.3
-# ###############################################
-
-
 # Configuration Variables
 URL = 'https://haveibeenpwned.com/'
 EMAIL_LIST = ['email1@example.com', 'email2@example.com']  # Add more emails as needed
