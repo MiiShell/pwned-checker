@@ -8,13 +8,12 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ###############################################
 # Version 3.3
 # ###############################################
-
-
 
 
 # Configuration Variables
@@ -88,7 +87,7 @@ def check_email_pwned(driver, email):
         logging.info(f"Clicked the 'pwned?' button for {email}")
 
         # Wait for the pwned title to appear
-        pwned_title = wait.until(
+        wait.until(
             EC.presence_of_element_located((By.CLASS_NAME, 'pwnTitle'))
         )
 
@@ -97,29 +96,32 @@ def check_email_pwned(driver, email):
         time.sleep(WAIT_TIME)  # Adding explicit sleep
 
         try:
-            # Locate the pwnCount element
-            pwn_count_element = wait.until(
-                EC.presence_of_element_located((By.ID, 'pwnCount'))
-            )
-            pwn_count_text = pwn_count_element.text.strip()
+            # Check if the pwnCount element exists on the page
+            if len(driver.find_elements(By.ID, 'pwnCount')) > 0:
+                # Locate the pwnCount element
+                pwn_count_element = driver.find_element(By.ID, 'pwnCount')
+                pwn_count_text = pwn_count_element.text.strip()
 
-            # Log the pwnCount text for verification
-            logging.info(f"pwnCount text for {email}: {pwn_count_text}")
-            print(f"pwnCount text for {email}: {pwn_count_text}")
+                # Log the pwnCount text for verification
+                logging.info(f"pwnCount text for {email}: {pwn_count_text}")
+                print(f"pwnCount text for {email}: {pwn_count_text}")
 
-            # Extract "Pwned in X data breaches" and "found Y pastes"
-            breaches_text, pastes_text = extract_pwned_info(pwn_count_text)
+                # Extract "Pwned in X data breaches" and "found Y pastes"
+                breaches_text, pastes_text = extract_pwned_info(pwn_count_text)
 
-            logging.info(f"Oh no — {email} has been pwned!")
-            logging.info(f"{breaches_text}, {pastes_text}")
+                logging.info(f"Oh no — {email} has been pwned!")
+                logging.info(f"{breaches_text}, {pastes_text}")
 
-            return {"email": email, "status": "Pwned", "breaches": breaches_text, "pastes": pastes_text}
+                return {"email": email, "status": "Pwned", "breaches": breaches_text, "pastes": pastes_text}
+            else:
+                logging.warning(f"pwnCount element not found for {email}.")
+                return {"email": email, "status": "Pwned", "breaches": "0", "pastes": "0"}
 
-        except Exception as e:
-            logging.error(f"Error extracting pwnCount for {email}: {e}")
-            return {"email": email, "status": f"Error extracting pwnCount: {e}", "breaches": "0", "pastes": "0"}
+        except TimeoutException:
+            logging.error(f"Timeout occurred while trying to locate pwnCount for {email}")
+            return {"email": email, "status": "Pwned", "breaches": "0", "pastes": "0"}
 
-    except Exception as e:
+    except (TimeoutException, NoSuchElementException) as e:
         logging.error(f"Error processing {email}: {e}")
         return {"email": email, "status": f"Error: {e}", "breaches": "0", "pastes": "0"}
 
