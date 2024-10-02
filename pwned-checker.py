@@ -8,6 +8,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
+
+# ###############################################
+# Version 2 -> There is a new Version available##
+# ###############################################
+
+
 # Configuration Variables
 URL = 'https://haveibeenpwned.com/'
 EMAIL_LIST = ['email1@example.com', 'email2@example.com']  # Add more emails as needed
