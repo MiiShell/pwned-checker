@@ -1,5 +1,6 @@
 import csv
 import logging
+import re  # Import regex module for safer number extraction
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -9,10 +10,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ###############################################
-# Version 3.1
+# Version 3.2
 # ###############################################
-
-
 
 
 # Configuration Variables
@@ -42,6 +41,27 @@ def setup_driver(headless=True):
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     return driver
 
+def extract_pwned_info(text):
+    """Extract pwned information (breaches and pastes) from the pwnCount text."""
+    try:
+        # Extract 'Pwned in X data breaches'
+        breaches_match = re.search(r'Pwned in (\d+)', text)
+        # Extract 'and found Y pastes'
+        pastes_match = re.search(r'found (\d+)', text)
+
+        # Default to 0 if no match found
+        breaches = breaches_match.group(1) if breaches_match else '0'
+        pastes = pastes_match.group(1) if pastes_match else '0'
+
+        # Return the full phrases to match your requirements
+        breaches_text = f"Pwned in {breaches} data breaches"
+        pastes_text = f"and found {pastes} paste(s)"
+
+        return breaches_text, pastes_text
+    except Exception as e:
+        logging.error(f"Error extracting pwned information: {e}")
+        return "Error extracting breaches", "Error extracting pastes"
+
 def check_email_pwned(driver, email):
     """Check if the provided email has been pwned."""
     try:
@@ -70,35 +90,37 @@ def check_email_pwned(driver, email):
 
         # Extract the result text
         pwned_result_element = driver.find_element(By.CLASS_NAME, 'pwnTitle')
-        pwned_result_text = pwned_result_element.text.lower()
+        pwned_result_text = pwned_result_element.text.strip()
 
-        if "no pwnage found" in pwned_result_text:
+        # Check if the user is pwned or not
+        if "no pwnage found" in pwned_result_text.lower():
             logging.info(f"Good news for {email} — no pwnage found!")
-            return {"email": email, "status": "No pwnage found", "breaches": 0, "pastes": 0}
+            return {"email": email, "status": "No pwnage found", "breaches": "0", "pastes": "0"}
         else:
             # If pwned, extract the breach and paste counts from the `pwnCount` element
             try:
                 pwn_count_element = driver.find_element(By.ID, 'pwnCount')
-                pwn_count_text = pwn_count_element.text
+                pwn_count_text = pwn_count_element.text.strip()
 
-                # DEBUG: Log and print pwn_count_text to verify content
+                # DEBUG: Log the full text for analysis
                 logging.info(f"pwnCount text for {email}: {pwn_count_text}")
                 print(f"pwnCount text for {email}: {pwn_count_text}")
 
-                # Extract the number of breaches and pastes from the text
-                breaches = int(pwn_count_text.split("Pwned in ")[1].split(" ")[0])
-                pastes = int(pwn_count_text.split("found ")[1].split(" ")[0])
+                # Extract "Pwned in X data breaches" and "found Y pastes"
+                breaches_text, pastes_text = extract_pwned_info(pwn_count_text)
+
+                logging.info(f"Oh no — {email} has been pwned!")
+                logging.info(f"{breaches_text}, {pastes_text}")
                 
-                logging.info(f"Oh no — {email} has been pwned in {breaches} breaches and found {pastes} pastes.")
-                return {"email": email, "status": "Pwned", "breaches": breaches, "pastes": pastes}
-            
+                return {"email": email, "status": "Pwned", "breaches": breaches_text, "pastes": pastes_text}
+
             except Exception as e:
                 logging.error(f"Error extracting pwnCount for {email}: {e}")
-                return {"email": email, "status": f"Error extracting pwnCount: {e}", "breaches": 0, "pastes": 0}
+                return {"email": email, "status": f"Error extracting pwnCount: {e}", "breaches": "0", "pastes": "0"}
 
     except Exception as e:
         logging.error(f"Error processing {email}: {e}")
-        return {"email": email, "status": f"Error: {e}", "breaches": 0, "pastes": 0}
+        return {"email": email, "status": f"Error: {e}", "breaches": "0", "pastes": "0"}
 
 def save_results(results, filename):
     """Save the results to a CSV file."""
